@@ -1,103 +1,143 @@
 import Task from "../models/task.model.js";
 
-// Crear tarea
+
+const esTextoValido = (valor) =>
+  typeof valor === "string" && valor.trim() !== "" && valor.length <= 100;
+
+
+const validarDatosTarea = ({ title, description, isComplete }) => {
+  if (!esTextoValido(title)) {
+    return "title debe ser un texto no vacio de maximo 100 caracteres";
+  }
+  if (!esTextoValido(description)) {
+    return "description debe ser un texto no vacio de maximo 100 caracteres";
+  }
+  
+  if (isComplete !== undefined && typeof isComplete !== "boolean") {
+    return "isComplete debe ser un valor booleano";
+  }
+  return null;
+};
+
 export const createTask = async (req, res) => {
   try {
     const { title, description, isComplete } = req.body;
 
-    if (!title || !description) {
-      return res.status(400).json({ error: "Título y descripción son obligatorios" });
-    }
-    if (title.length > 100 || description.length > 100) {
-      return res.status(400).json({ error: "Título y descripción no pueden superar 100 caracteres" });
+    const errorValidacion = validarDatosTarea(req.body);
+    if (errorValidacion) {
+      return res.status(400).json({ message: errorValidacion });
     }
 
-    // Verificar título único
-    const existingTask = await Task.findOne({ where: { title } });
-    if (existingTask) {
-      return res.status(400).json({ error: "El título ya existe" });
+    //  no puede haber dos tareas con el mismo titulo
+    const tituloExistente = await Task.findOne({ where: { title } });
+    if (tituloExistente) {
+      return res
+        .status(400)
+        .json({ message: "Ya existe una tarea con ese titulo" });
     }
 
-    const newTask = await Task.create({ title, description, isComplete: isComplete || false });
-    res.status(201).json({ message: "Tarea creada", task: newTask });
+    const nuevaTarea = await Task.create({ title, description, isComplete });
+    return res.status(201).json({
+      message: "Tarea creada correctamente",
+      task: nuevaTarea,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({
+      message: "Error al crear la tarea",
+      error: error.message,
+    });
   }
 };
 
-// Obtener todas las tareas
 export const getTasks = async (req, res) => {
   try {
-    const tasks = await Task.findAll();
-    res.status(200).json(tasks);
+    const tareas = await Task.findAll();
+    return res.status(200).json({
+      message: "Tareas obtenidas correctamente",
+      tasks: tareas,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({
+      message: "Error al obtener las tareas",
+      error: error.message,
+    });
   }
 };
 
-// Obtener tarea por ID
 export const getTaskById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const task = await Task.findByPk(id);
-    if (!task) {
-      return res.status(404).json({ error: "Tarea no encontrada" });
+    const tarea = await Task.findByPk(req.params.id);
+    if (!tarea) {
+      return res.status(404).json({ message: "Tarea no encontrada" });
     }
-    res.status(200).json(task);
+
+    return res.status(200).json({
+      message: "Tarea obtenida correctamente",
+      task: tarea,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({
+      message: "Error al obtener la tarea",
+      error: error.message,
+    });
   }
 };
 
-// Actualizar tarea
 export const updateTask = async (req, res) => {
   try {
-    const { id } = req.params;
+    // la tarea tiene que existir antes de editarla
+    const tarea = await Task.findByPk(req.params.id);
+    if (!tarea) {
+      return res.status(404).json({ message: "Tarea no encontrada" });
+    }
+
     const { title, description, isComplete } = req.body;
 
-    const task = await Task.findByPk(id);
-    if (!task) {
-      return res.status(404).json({ error: "Tarea no encontrada" });
+    const errorValidacion = validarDatosTarea(req.body);
+    if (errorValidacion) {
+      return res.status(400).json({ message: errorValidacion });
     }
 
-    if (title && title.length > 100) {
-      return res.status(400).json({ error: "El título no puede superar 100 caracteres" });
-    }
-    if (description && description.length > 100) {
-      return res.status(400).json({ error: "La descripción no puede superar 100 caracteres" });
-    }
-
-    // Verificar título único si se cambia
-    if (title && title !== task.title) {
-      const existingTask = await Task.findOne({ where: { title } });
-      if (existingTask) {
-        return res.status(400).json({ error: "El título ya está en uso" });
-      }
+    // el titulo puede repetirse solo si es el de la misma tarea
+    const tituloExistente = await Task.findOne({ where: { title } });
+    if (tituloExistente && tituloExistente.id !== tarea.id) {
+      return res
+        .status(400)
+        .json({ message: "Ya existe otra tarea con ese titulo" });
     }
 
-    await task.update({ title, description, isComplete });
-    res.status(200).json({ message: "Tarea actualizada", task });
+    await tarea.update({
+      title,
+      description,
+      // si no viene isComplete, se conserva el valor que ya tenia
+      isComplete: isComplete ?? tarea.isComplete,
+    });
+    return res.status(200).json({
+      message: "Tarea actualizada correctamente",
+      task: tarea,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({
+      message: "Error al actualizar la tarea",
+      error: error.message,
+    });
   }
 };
 
-// Eliminar tarea
 export const deleteTask = async (req, res) => {
   try {
-    const { id } = req.params;
-    const task = await Task.findByPk(id);
-    if (!task) {
-      return res.status(404).json({ error: "Tarea no encontrada" });
+    // la tarea tiene que existir antes de eliminarla
+    const tarea = await Task.findByPk(req.params.id);
+    if (!tarea) {
+      return res.status(404).json({ message: "Tarea no encontrada" });
     }
-    await task.destroy();
-    res.status(200).json({ message: "Tarea eliminada" });
+
+    await tarea.destroy();
+    return res.status(200).json({ message: "Tarea eliminada correctamente" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({
+      message: "Error al eliminar la tarea",
+      error: error.message,
+    });
   }
 };

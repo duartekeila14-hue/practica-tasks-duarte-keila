@@ -1,108 +1,137 @@
 import User from "../models/user.model.js";
 
-// Crear usuario
+// Un texto es valido si es string, no esta vacio y tiene maximo 100 caracteres
+const esTextoValido = (valor) =>
+  typeof valor === "string" && valor.trim() !== "" && valor.length <= 100;
+
+// Devuelve un mensaje de error si algun dato es invalido, o null si todo esta bien
+const validarDatosUsuario = ({ name, email, password }) => {
+  if (!esTextoValido(name)) {
+    return "name debe ser un texto no vacio de maximo 100 caracteres";
+  }
+  if (!esTextoValido(email)) {
+    return "email debe ser un texto no vacio de maximo 100 caracteres";
+  }
+  if (!esTextoValido(password)) {
+    return "password debe ser un texto no vacio de maximo 100 caracteres";
+  }
+  return null;
+};
+
 export const createUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validaciones
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: "Todos los campos son obligatorios" });
-    }
-    if (name.length > 100 || email.length > 100 || password.length > 100) {
-      return res.status(400).json({ error: "Los campos no pueden superar los 100 caracteres" });
+    const errorValidacion = validarDatosUsuario(req.body);
+    if (errorValidacion) {
+      return res.status(400).json({ message: errorValidacion });
     }
 
-    // Verificar email único
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ error: "El email ya está registrado" });
+    // no puede haber dos usuarios con el mismo email
+    const emailExistente = await User.findOne({ where: { email } });
+    if (emailExistente) {
+      return res
+        .status(400)
+        .json({ message: "Ya existe un usuario con ese email" });
     }
 
-    const newUser = await User.create({ name, email, password });
-    res.status(201).json({ message: "Usuario creado", user: newUser });
+    const nuevoUsuario = await User.create({ name, email, password });
+    return res.status(201).json({
+      message: "Usuario creado correctamente",
+      user: nuevoUsuario,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({
+      message: "Error al crear el usuario",
+      error: error.message,
+    });
   }
 };
 
-// Obtener todos los usuarios
 export const getUsers = async (req, res) => {
   try {
-    const users = await User.findAll();
-    res.status(200).json(users);
+    const usuarios = await User.findAll();
+    return res.status(200).json({
+      message: "Usuarios obtenidos correctamente",
+      users: usuarios,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({
+      message: "Error al obtener los usuarios",
+      error: error.message,
+    });
   }
 };
 
-// Obtener usuario por ID
 export const getUserById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
+    const usuario = await User.findByPk(req.params.id);
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    res.status(200).json(user);
+
+    return res.status(200).json({
+      message: "Usuario obtenido correctamente",
+      user: usuario,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({
+      message: "Error al obtener el usuario",
+      error: error.message,
+    });
   }
 };
 
-// Actualizar usuario
 export const updateUser = async (req, res) => {
   try {
-    const { id } = req.params;
+    //el usuario tiene que existir antes de editarlo
+    const usuario = await User.findByPk(req.params.id);
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
     const { name, email, password } = req.body;
 
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
+    const errorValidacion = validarDatosUsuario(req.body);
+    if (errorValidacion) {
+      return res.status(400).json({ message: errorValidacion });
     }
 
-    // Validaciones básicas
-    if (name && name.length > 100) {
-      return res.status(400).json({ error: "El nombre no puede superar los 100 caracteres" });
-    }
-    if (email && email.length > 100) {
-      return res.status(400).json({ error: "El email no puede superar los 100 caracteres" });
-    }
-    if (password && password.length > 100) {
-      return res.status(400).json({ error: "La contraseña no puede superar los 100 caracteres" });
+    // el email puede repetirse solo si es el del mismo usuario
+    const emailExistente = await User.findOne({ where: { email } });
+    if (emailExistente && emailExistente.id !== usuario.id) {
+      return res
+        .status(400)
+        .json({ message: "Ya existe otro usuario con ese email" });
     }
 
-    // Verificar email único si se va a cambiar
-    if (email && email !== user.email) {
-      const existingUser = await User.findOne({ where: { email } });
-      if (existingUser) {
-        return res.status(400).json({ error: "El email ya está registrado" });
-      }
-    }
-
-    await user.update({ name, email, password });
-    res.status(200).json({ message: "Usuario actualizado", user });
+    await usuario.update({ name, email, password });
+    return res.status(200).json({
+      message: "Usuario actualizado correctamente",
+      user: usuario,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({
+      message: "Error al actualizar el usuario",
+      error: error.message,
+    });
   }
 };
 
-// Eliminar usuario
 export const deleteUser = async (req, res) => {
   try {
-    const { id } = req.params;
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
+    //  el usuario tiene que existir antes de eliminarlo
+    const usuario = await User.findByPk(req.params.id);
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    await user.destroy();
-    res.status(200).json({ message: "Usuario eliminado" });
+
+    await usuario.destroy();
+    return res.status(200).json({ message: "Usuario eliminado correctamente" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({
+      message: "Error al eliminar el usuario",
+      error: error.message,
+    });
   }
 };
