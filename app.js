@@ -1,8 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import sequelize from "./src/config/database.js";
-import userRoutes from "./src/routes/user.route.js";
-import taskRoutes from "./src/routes/task.route.js";
+import userRoutes from "./src/routes/user.routes.js";
+import taskRoutes from "./src/routes/task.routes.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
