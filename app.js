@@ -1,11 +1,11 @@
 import "dotenv/config";
 import express from "express";
 import sequelize from "./src/config/database.js";
-import userRoutes from "./src/routes/user.routes.js";
-import taskRoutes from "./src/routes/task.routes.js";
+import userRoutes from "./src/routes/user.route.js";
+import taskRoutes from "./src/routes/task.route.js";
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 app.use("/api/users", userRoutes);
@@ -21,6 +21,7 @@ const iniciarServidor = async () => {
     });
   } catch (error) {
     console.error("No se pudo conectar a la base de datos:", error.message);
+    process.exitCode = 1;
   }
 };
 

@@ -1,10 +1,21 @@
 import { Sequelize } from "sequelize";
 
-// Conexion a la base de datos MySQL "tasks_users_db".
-// Cambiar "TU_PASSWORD" por la contraseña de tu MySQL.
-const sequelize = new Sequelize("tasks_users_db", "root", "", {
-  host: "localhost",
-  dialect: "mysql",
-});
+const requiredEnv = (name) => {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Falta configurar la variable de entorno ${name}`);
+  }
+  return value;
+};
+
+const sequelize = new Sequelize(
+  requiredEnv("DB_NAME"),
+  requiredEnv("DB_USER"),
+  process.env.DB_PASSWORD || "",
+  {
+    host: requiredEnv("DB_HOST"),
+    dialect: "mysql",
+  },
+);
 
 export default sequelize;
